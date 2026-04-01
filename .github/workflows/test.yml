@@ -1,45 +1,32 @@
-name: Test Resume
+name: Run Tests
 
-on:
-  # push:
-  #   paths:
-  #     - 'resume.tex'
+'on':
+  push:
+    branches: [ "main" ]
   pull_request:
-    paths:
-      - 'resume.tex'
+    branches: [ "main" ]
 
 jobs:
-  spellcheck:
+  test:
+    name: test
     runs-on: ubuntu-latest
-    name: Spell Check and Validate links
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: install dependencies
-        run: sudo apt update && sudo apt install -y aspell
 
-      - name: Spell Check Resume
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
         run: |
-            aspell --mode=tex --home-dir=. --personal=resume_dict.txt list < resume.tex > misspelled_words.txt
-            if [ -s misspelled_words.txt ]; then
-                echo -e "\e[31mSpelling mistakes found!\e[0m"
-                cat misspelled_words.txt
-                exit 1
-            else
-                echo -e "\e[32mNo spelling mistakes.\e[0m"
-            fi
+          python -m pip install --upgrade pip
+          pip install pytest
+          if [ -f scripts/setup.sh ]; then
+            chmod +x scripts/setup.sh
+            ./scripts/setup.sh
+          fi
 
-      - name: validate links
-        run: | 
-            grep -o "https://[^}]*" resume.tex > links.txt
-            for LINK in $(cat links.txt); do
-                    HTTP_RESPONSE_CODE=$( curl -s -o /dev/null -w "%{http_code}" $LINK )
-                    if [ $HTTP_RESPONSE_CODE -eq 404 ]; then
-                        echo $LINK >> broken_links.txt
-                    fi
-            done
-            if [ -s broken_links.txt ]; then
-                echo -e "\e[031mBroken links found!\e[0m"
-                cat broken_links.txt
-            fi
+      - name: Run pytest
+        run: pytest
